@@ -483,8 +483,8 @@ if(threadIdx.x == 0) {
         //     printf("encode:%x,toDo:%x,warpCnt:%u\n",encode[j * num_divs_local + k],
         //     toDoLargeC[k], __popc(encode[j * num_divs_local + k] & toDoLargeC[k]));
         // }
-                    warpCount += __popc(encode[j * num_divs_local + k] & toDoLargeC[k]);
                     // warpCount += __popc(encode[j * num_divs_local + k] & toDoLargeC[k]);
+                    warpCount += __popc(encode[j * num_divs_local + k] & toDoLargeC[k]);
                 }
                 reduce_part<T, CPARTSIZE>(partMask[wx], warpCount);
 
