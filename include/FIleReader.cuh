@@ -386,7 +386,7 @@ namespace graph
                 const size_t n                 //!< [in] the number of edges to try to read
             ) {
             //SPDLOG_TRACE(logger::console(), "requested {} edges", n);
-            edges.resize(n);
+            if(edges.size() < n) edges.resize(n);
 
             size_t numRead;
             switch (type_) {

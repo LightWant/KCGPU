@@ -1,7 +1,7 @@
 
 #include <cuda_runtime.h>
 #include <iostream>
-#include<string>
+#include <string>
 #include <fstream>
 #include <map>
 
@@ -45,6 +45,8 @@ int main(int argc, char** argv)
     graph::MtB_Writer mwriter;
     auto fileSrc = config.srcGraph;
     auto fileDst = config.dstGraph;
+
+    {
     if (config.mt == CONV_MTX_BEL) {
         mwriter.write_market_bel<uint, int>(fileSrc, fileDst, false);
         return;
@@ -69,7 +71,8 @@ int main(int argc, char** argv)
         mwriter.write_txt_bel<uint, uint>(fileSrc, fileDst, true, 2, 0);
         return;
     }
-
+    }
+    
     Timer read_graph_timer;
 
     const char* matr = config.srcGraph;
@@ -86,12 +89,51 @@ int main(int argc, char** argv)
         edges.insert(edges.end(), fileEdges.begin(), fileEdges.end());
     }
 
+    
+
+// for(int i = 0; i < 10; i++) {
+//     printf("%u %u\n", edges[i].first, edges[i].second);
+// }fflush(stdout);
     if (config.sortEdges)
     {
         printf("Sorting Edges ... \n");
         f.sort_edges(edges);
         printf("Done Sorting Edges ... \n");
+    }   
+   /*
+    int cnt = 0;
+    for(int i = 0; i < edges.size(); i++) {
+        unsigned a = edges[i].first;
+        unsigned b = edges[i].second;
+        if(a > b) continue;
+        for(int j = 0; j < edges.size(); j++) if(j != i) {
+            unsigned c = edges[j].first;
+            unsigned d = edges[j].second;
+            if(c > d) continue;
+            if(b > c) continue;
+            bool fac = false;
+            bool fad = false;
+            bool fbc = false;
+            bool fbd = false;
+
+            for(int k = 0; k < edges.size(); k++) {
+                unsigned e = edges[k].first;
+                unsigned f = edges[k].second;
+                if(e > f) continue;   
+                if(e == a && f == c) fac = true;
+                if(e == a && f == d) fad = true;
+                if(e == b && f == c) fbc = true;
+                if(e == b && f == d) fbd = true;
+            }
+
+            if(fac && fad && fbc && fbd) {
+                cnt++;
+            }
+        }
     }
+    printf("cnt:%d\n", cnt);
+
+*/    
 
     graph::CSRCOO<uint> csrcoo;
     if (config.orient == Upper)
@@ -116,6 +158,7 @@ int main(int argc, char** argv)
     g.colInd = new graph::GPUArray<uint>("Dst Index", AllocationTypeEnum::noalloc,  m, config.deviceId, true);
 
     uint *rp, *ri, *ci;
+    // cudaMallocHost 是 CUDA 中的一种内存分配函数，用于在主机（Host）上分配页锁定内存（也称为“固定内存”或“页锁定内存”）。页锁定内存不会被操作系统的虚拟内存管理系统换出到磁盘，因此它支持更高效的主机和设备（GPU）之间的数据传输，尤其在异步内存传输时表现尤为明显。
     cudaMallocHost((void**)&rp, (n+1)*sizeof(uint));
     cudaMallocHost((void**)&ri, (m)*sizeof(uint));
     cudaMallocHost((void**)&ci, (m)*sizeof(uint));
@@ -162,7 +205,7 @@ int main(int argc, char** argv)
     Log(info, "Transfer Time: %f s", total);
 
     Timer t;
-    graph::SingleGPU_Kcore<uint, PeelType> mohacore(config.deviceId);
+    graph::SingleGPU_Kcore<uint, PeelType> mohacore(config.deviceId);//create a stream
     if (config.orient == Degree || config.orient == Degeneracy)
     {
         if (config.orient == Degeneracy)
@@ -182,7 +225,8 @@ int main(int argc, char** argv)
         }
         else if (config.orient == Degeneracy)
         {
-            execKernel((init<uint, PeelType>), ((m - 1) / 51200) + 1, 512, config.deviceId, false, *gd, asc.gdata(), keep.gdata(), mohacore.nodeDegree.gdata(), mohacore.nodePriority.gdata());
+            execKernel((init<uint, PeelType>), ((m - 1) / 51200) + 1, 512, config.deviceId, false, 
+                *gd, asc.gdata(), keep.gdata(), mohacore.nodeDegree.gdata(), mohacore.nodePriority.gdata());
         }
 
         graph::CubLarge<uint> s(config.deviceId);
@@ -234,7 +278,7 @@ int main(int argc, char** argv)
         Log(info, "Preprocess time: %f s", time_init);
     }
 
-
+// printf("here0\n");fflush(stdout);
 
     if (config.printStats) {
 
@@ -244,7 +288,7 @@ int main(int argc, char** argv)
         MatrixStats(m, n, n, g.rowPtr->cdata(), g.colInd->cdata());
         PrintMtarixStruct(m, n, n, g.rowPtr->cdata(), g.colInd->cdata());
     }
-
+// printf("here1\n");fflush(stdout);
     if (config.mt == KCORE)
     {
         graph::COOCSRGraph_d<uint>* gd;
@@ -260,13 +304,16 @@ int main(int argc, char** argv)
         Log(info, "MOHA %d kcore (%f teps)", mohacore.count(), m / time);
     }
 
+
+                  
+
     if (config.mt == KCLIQUE)
     {
         if (config.orient == None)
             Log(warn, "Redundunt K-cliques, Please orient the graph\n");
 
-
-
+// printf("here2\n");fflush(stdout);
+       
         // if(config.processElement == BlockWarp)
         // {
         // 	graph::SingleGPU_Kclique_NoOutQueue<uint> mohaclique(config.deviceId, *gd);
@@ -286,11 +333,12 @@ int main(int argc, char** argv)
         // }
         // else
         {
-
+         
             //read the nCr values, to be saved in (Constant or global or )
 
             graph::SingleGPU_Kclique<uint> mohaclique(config.deviceId, *gd);
 
+// printf("here21\n");fflush(stdout);
 
             KcliqueConfig kcc = config.kcConfig;
 
@@ -299,7 +347,7 @@ int main(int argc, char** argv)
             {
                 //printf("------------------ K=%d ----------------------\n", k);
                 for (int i = 0; i < 1; i++)
-                {
+                {                          
                     Timer t;
                     if (config.processBy == ByNode)
                     {
@@ -308,12 +356,11 @@ int main(int argc, char** argv)
 
                             if(kcc.BinaryEncode)
                             {
-
                                 switch(kcc.PartSize)
                                 {
-                                    case 32:
+                                    case 32:    
                                     mohaclique.findKclqueIncremental_node_binary_async<32>(config.k, *gd, config.processElement);
-                                    break;
+                                    break;      
                                     case 16:
                                     mohaclique.findKclqueIncremental_node_binary_async<16>(config.k, *gd, config.processElement);
                                     break;
@@ -371,14 +418,12 @@ int main(int argc, char** argv)
                             }
 
                         }
-                        else // Pivoting
+                        else if(kcc.Algo == Pivoting) // Pivoting
                         {
                             if(kcc.BinaryEncode)
                             {
-
-
                                 switch(kcc.PartSize)
-                                {
+                                {                       
                                     case 32:
                                     mohaclique.findKclqueIncremental_node_pivot_async<32>(config.k, *gd, config.processElement);
                                     break;
@@ -437,6 +482,32 @@ int main(int argc, char** argv)
                                 //mohaclique.findKclqueIncremental_node_nobin_pivot_async(config.k, *gd, config.processElement);
                             }
 
+                        }
+                        else if(kcc.Algo == LargeClique) {
+                            printf("largeCliqueNode\n");
+                            switch(kcc.PartSize)
+                            {                        
+                                case 32:      
+                                mohaclique.findKclqueLC_node_binary_async<32>(config.k, *gd, config.processElement);
+                                break;        
+                                case 16:
+                                mohaclique.findKclqueLC_node_binary_async<16>(config.k, *gd, config.processElement);
+                                break;  
+                                case 8:     
+                                mohaclique.findKclqueLC_node_binary_async<8>(config.k, *gd, config.processElement);
+                                break; 
+                                case 4:
+                                mohaclique.findKclqueLC_node_binary_async<4>(config.k, *gd, config.processElement);
+                                break;
+                                case 2:
+                                mohaclique.findKclqueLC_node_binary_async<2>(config.k, *gd, config.processElement);
+                                break;
+                                case 1:     
+                                mohaclique.findKclqueLC_node_binary_async<1>(config.k, *gd, config.processElement);
+                                break;
+                                default:
+                                    Log(error, "WRONG PARTITION SIZE SELECTED\n");
+                            }
                         }
                     }
                     else if (config.processBy == ByEdge)
@@ -508,7 +579,7 @@ int main(int argc, char** argv)
                             }
 
                         }
-                        else //Pivoting
+                        else if(kcc.Algo == Pivoting) //Pivoting
                         {
                             if(kcc.BinaryEncode)
                             {
@@ -573,18 +644,47 @@ int main(int argc, char** argv)
                             }
 
                         }
+                        else if(kcc.Algo == LargeClique) {
+                            printf("largeCliqueEdge\n");
+                            switch(kcc.PartSize)
+                            {
+                                case 32:
+                                mohaclique.findKclqueLC_edge_binary_async<32>(config.k, *gd, config.processElement);
+                                break;
+                                case 16:
+                                mohaclique.findKclqueLC_edge_binary_async<16>(config.k, *gd, config.processElement);
+                                break;
+                                case 8:
+                                mohaclique.findKclqueLC_edge_binary_async<8>(config.k, *gd, config.processElement);
+                                break; 
+                                case 4:
+                                mohaclique.findKclqueLC_edge_binary_async<4>(config.k, *gd, config.processElement);
+                                break;
+                                case 2:
+                                mohaclique.findKclqueLC_edge_binary_async<2>(config.k, *gd, config.processElement);
+                                break;
+                                case 1:
+                                mohaclique.findKclqueLC_edge_binary_async<1>(config.k, *gd, config.processElement);
+                                break;
+                                default:
+                                    Log(error, "WRONG PARTITION SIZE SELECTED\n");
+                            }
+                        }
                     }
-                    mohaclique.sync();
-                    double time = t.elapsed();
-                    Log(info, "count time %f s", time);
-                    Log(info, "MOHA %d k-clique (%f teps)", mohaclique.count(), m / time);
                 }
+                mohaclique.sync();
+                double time = t.elapsed();
+                Log(info, "count time %f s", time);
+                Log(info, "MOHA %d k-clique (%f teps)", mohaclique.count(), m / time);
+                
 
                 //k++;
             }
 
+// printf("here22\n");fflush(stdout);
 
         }
+// printf("here3\n");fflush(stdout);
     }
 
     if (config.mt == KCLIQUE_LOCAL)
@@ -742,7 +842,7 @@ int main(int argc, char** argv)
         Log(info, "count time %f s (%f teps)", time, m / time);
         localclique.show(n);
     }
-
+   
     printf("Done ....\n");
 
     //A.freeGPU();

@@ -68,7 +68,15 @@ namespace graph
 			name = s;
 			_at = at;
 			_deviceId = devId;
+
+			// cudaSetDevice 是 CUDA 运行时 API 中的一个函数，用于在多 GPU 系统中设置当前线程要使用的 GPU 设备。它使当前的 CPU 线程与指定的 GPU 进行绑定，以便后续的 CUDA 操作在该设备上执行。这个函数在多 GPU 系统中非常重要，因为在默认情况下，一个线程只会使用一个 GPU，但可以通过 cudaSetDevice 来更改使用的 GPU。
 			CUDA_RUNTIME(cudaSetDevice(_deviceId));
+			
+			// cudaStream_t stream;
+			// cudaStreamCreate(&stream);        // 创建流
+			// // 使用流...
+			// cudaStreamDestroy(stream);        // 销毁流
+			
 			CUDA_RUNTIME(cudaStreamCreate(&_stream));
 
 			// if(pinned)

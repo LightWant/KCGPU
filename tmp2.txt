@@ -1,0 +1,124 @@
+[0mWelcome ---------------------
+    Graph: data/my/2.txt
+    DST Graph: D:\graphs\as-Skitter2.bel
+    Pattern Graph: D:\graphs\as-Skitter2.bel
+    Device Id = 0
+    Allocation = gpu
+    Small Graph = Large Graph Allocation
+    Main Task = kc -> kclique
+    Graph Orientation = degen
+    Process By = node
+    Process Element = bw
+    k: 4
+    KC Config = LargeClique-8-BE
+Sorting Edges ... 
+Done Sorting Edges ... 
+[1;32m[21:56:23] Read graph time: 0.721429 s
+[0m[1;32m[21:56:23] Transfer Time: 0.000182 s
+[0mMax Core = 38
+[1;32m[21:56:23] Preprocess time: 0.010358 s
+[0mlargeCliqueNode
+Test Test ?
+num_SMs:68
+conc_blocks_per_SM:4
+current_q.count.gdata()[0]:96
+cTri:4,34
+cTri:2,48
+cTri:13,29
+cTri:20,26
+cTri:4,10
+cTri:36,20
+cTri:26,24
+cTri:36,19
+cTri:70,5
+cTri:108,17
+cTri:156,7
+cTri:249,1
+cTri:329,92
+cTri:249,3
+cTri:399,88
+cTri:409,91
+cTri:326,90
+cTri:409,95
+cTri:511,89
+cTri:598,86
+cTri:814,85
+cTri:743,82
+cTri:677,74
+cTri:603,33
+cTri:947,70
+cTri:978,81
+cTri:1256,64
+cTri:1134,73
+cTri:1101,45
+cTri:1496,55
+cTri:1051,28
+cTri:1747,42
+cTri:996,39
+cTri:1717,58
+cTri:1059,69
+cTri:1842,66
+cTri:1970,60
+cTri:1839,61
+cTri:1859,43
+cTri:2281,59
+cTri:1404,32
+cTri:2492,31
+cTri:1489,12
+cTri:2600,35
+cTri:2346,49
+cTri:2349,54
+cTri:424,9
+cTri:2927,94
+cTri:1867,50
+cTri:2418,38
+cTri:572,8
+cTri:2267,13
+cTri:2215,18
+cTri:2820,30
+cTri:3025,14
+cTri:3542,75
+cTri:3172,36
+cTri:3017,47
+cTri:3537,65
+cTri:3940,41
+cTri:3151,53
+cTri:4215,93
+cTri:2826,2
+cTri:2644,6
+cTri:2515,46
+cTri:1927,40
+cTri:2807,52
+cTri:2521,68
+cTri:3308,0
+cTri:4153,80
+cTri:2272,4
+cTri:3729,72
+cTri:3151,56
+cTri:3491,62
+cTri:3127,84
+cTri:2914,16
+cTri:3077,44
+cTri:3863,22
+cTri:3282,87
+cTri:2465,63
+cTri:3221,11
+cTri:3432,79
+cTri:3221,76
+cTri:3420,67
+cTri:4077,15
+cTri:2247,51
+cTri:3416,83
+cTri:2868,27
+cTri:3005,25
+cTri:2747,21
+cTri:2781,77
+cTri:2090,57
+cTri:3071,37
+cTri:3075,23
+cTri:2533,71
+cTri:3598,78
+------------- Level = 3 Nodes = 96 Counter = 188,727
+[1;32m[21:56:23] count time 0.140509 s
+[0m[1;32m[21:56:23] MOHA 1026 k-clique (18781.658508 teps)
+[0mDone ....

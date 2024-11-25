@@ -34,7 +34,7 @@ enum AllocationTypeEnum { cpuonly, gpu, unified, zerocopy, noalloc };
 enum LogPriorityEnum { critical, warn, error, info, debug, none };
 enum OrientGraphByEnum { None, Upper, Lower, Degree, Degeneracy };
 enum ProcessBy { ByNode, ByEdge };
-enum KCAlgoEnum {GraphOrient, Pivoting};
+enum KCAlgoEnum {GraphOrient, Pivoting, LargeClique};
 
 enum MAINTASK {
     CONV_TSV_MTX,

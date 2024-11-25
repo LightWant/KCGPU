@@ -1,0 +1,28 @@
+[0mWelcome ---------------------
+    Graph: data/my/95.txt
+    DST Graph: D:\graphs\as-Skitter2.bel
+    Pattern Graph: D:\graphs\as-Skitter2.bel
+    Device Id = 0
+    Allocation = gpu
+    Small Graph = Large Graph Allocation
+    Main Task = kc -> kclique
+    Graph Orientation = degen
+    Process By = node
+    Process Element = bw
+    k: 4
+    KC Config = LargeClique-8-BE
+Sorting Edges ... 
+Done Sorting Edges ... 
+[1;32m[16:43:04] Read graph time: 0.705648 s
+[0m[1;32m[16:43:04] Transfer Time: 0.000122 s
+[0mMax Core = 37
+[1;32m[16:43:04] Preprocess time: 0.011091 s
+[0mlargeCliqueNode
+Test Test ?
+num_SMs:68
+conc_blocks_per_SM:4
+current_q.count.gdata()[0]:95
+------------- Level = 3 Nodes = 95 Counter = 163,050
+[1;32m[16:43:04] count time 0.138994 s
+[0m[1;32m[16:43:04] MOHA 1026 k-clique (18072.742327 teps)
+[0mDone ....

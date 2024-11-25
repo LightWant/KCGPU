@@ -56,6 +56,10 @@ namespace graph {
                 while (csr.rowPtr_.size() != size_t(src + 1)) {
                     // expecting inputs to be sorted by src, so it should be at least
                     // as big as the current largest row we have recored
+// if(src < csr.rowPtr_.size()) {
+//     printf("%u %u\n", unsigned(src), csr.rowPtr_.size());
+//     fflush(stdout);
+// }
                     assert(src >= csr.rowPtr_.size());
                     // SPDLOG_TRACE(logger::console(), "node {} edges start at {}", edge.src_,
                     // csr.edgeSrc_.size());

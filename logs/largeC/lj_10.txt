@@ -1,0 +1,26 @@
+[0mWelcome ---------------------
+    Graph: ../../maximalKPlex/data/comlj/data.txt
+    DST Graph: D:\graphs\as-Skitter2.bel
+    Pattern Graph: D:\graphs\as-Skitter2.bel
+    Device Id = 0
+    Allocation = gpu
+    Small Graph = Large Graph Allocation
+    Main Task = kc -> kclique
+    Graph Orientation = degen
+    Process By = node
+    Process Element = bw
+    k: 10
+    KC Config = LargeClique-8-BE
+Sorting Edges ... 
+Done Sorting Edges ... 
+[1;32m[21:05:44] Read graph time: 21.926939 s
+[0m[1;32m[21:05:44] Transfer Time: 0.010931 s
+[0mMax Core = 360
+[1;32m[21:05:45] Preprocess time: 0.559612 s
+[0mlargeCliqueNode
+Test Test ?
+current_q.count.gdata()[0]:1360811
+------------- Level = 9 Nodes = 1,360,811 Counter = 526,317,077,682,470,485
+[1;32m[03:20:57] count time 22512.585462 s
+[0m[1;32m[03:20:57] MOHA 1032 k-clique (1540.524524 teps)
+[0mDone ....

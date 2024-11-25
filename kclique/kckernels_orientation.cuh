@@ -531,6 +531,10 @@ kckernel_edge_block_warp_binary_count_o2(
 
 		//get tri list: by block :!!
 		__syncthreads();
+        /**
+         * scounter是三角形数量
+         * tri[i]是第i个三角形中边的公共邻居
+         */
 		graph::block_count_and_set_tri<BLOCK_DIM_X, T>(&g.colInd[srcStart], srcLen, &g.colInd[src2Start], src2Len,
 			tri, &scounter);
 		
@@ -555,8 +559,10 @@ kckernel_edge_block_warp_binary_count_o2(
         build_induced_subgraph<T, CPARTSIZE>(wx, lx, g, scounter, numPartitions, num_divs_local, partMask, tri, encode);
 		__syncthreads(); //Done encoding
 
-		if(lx == 0)
-			wtc[wx] = atomicAdd(&(tc), 1);
+        /**increments tc by 1 and returns the previous value of tc before the increment. 
+         * each wrap choose a triangle node
+        */
+		if(lx == 0) wtc[wx] = atomicAdd(&(tc), 1);
 		__syncwarp(partMask);
 
 		while(wtc[wx] < scounter)
@@ -583,6 +589,7 @@ kckernel_edge_block_warp_binary_count_o2(
 				clique_count[wx] += warpCount;
 			else if (lx == 0 && KCCOUNT > SL && warpCount >= KCCOUNT - SL + 1)
 			{
+                // #define LA l[wx] - SL
 				level_count[wx][LA] = warpCount;
 				level_prev_index[wx][LA] = 0;
 			}
@@ -639,8 +646,7 @@ kckernel_edge_block_warp_binary_count_o2(
 
 			__syncwarp(partMask);
 
-			if(lx == 0)
-			wtc[wx] = atomicAdd(&(tc), 1);
+			if(lx == 0) wtc[wx] = atomicAdd(&(tc), 1);
 			__syncwarp(partMask);
 		}
 	}

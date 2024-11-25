@@ -1,4 +1,6 @@
 NVCC = nvcc
+CC = /opt/rh/devtoolset-7/root/bin/gcc
+CXX = /opt/rh/devtoolset-7/root/bin/g++
 TARGET_EXEC ?= a.out
 
 BUILD_DIR ?= ./build
@@ -17,8 +19,8 @@ INCL_DIRS := #./include $(FREESTAND_DIR)/include
 INC_FLAGS := $(addprefix -I,$(INCL_DIRS))
 LDFLAGS := 	
 CPPFLAGS ?= $(INC_FLAGS) -Wall -pthread -MMD -MP -shared -fPIC -std=c++11 -O3 -mavx -ftree-vectorize -fopt-info-vec
-CUDAFLAGS = $(INC_FLAGS) -g -w -lineinfo -std=c++11 -O3 -DCUDA -DNOT_IMPL -arch=sm_70 -gencode=arch=compute_70,code=sm_70 -gencode=arch=compute_70,code=compute_70 -gencode=arch=compute_75,code=sm_75 -gencode=arch=compute_75,code=compute_75
-
+CUDAFLAGS = $(INC_FLAGS) -g -w -lineinfo -std=c++11 -O3 -ccbin /opt/rh/devtoolset-7/root/usr/bin/gcc -DCUDA -DNOT_IMPLcode=sm_75 -gencode=arch=compute_75,code=sm_75 -gencode=arch=compute_75,code=compute_75
+#  -arch=sm_70 -gencode=arch=compute_70, -gencode=arch=compute_70,code=compute_70
 
 all: objs exes
 

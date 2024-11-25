@@ -193,6 +193,9 @@ kernel_partition_level_next(
 
 		for (auto j = srcStart + lx; j < (srcStop + P - 1) / P * P; j += P)
 		{
+
+			// __syncwarp(): Synchronizes all threads in the current warp.
+// __syncwarp(mask): Synchronizes only the threads specified by the mask (an integer bitmask). This allows you to selectively sync specific threads within the warp.
 			__syncwarp();
 			// if (*size >= P)
 			// {
@@ -316,7 +319,8 @@ namespace graph
 
 		//Percentage of deleted edges for a specific k
 		float percentage_deleted_k;
-
+	//bucket_scan(nodeDegree, todo_original, level, current_q, identity_arr_asc,
+	// bucket_q, bucket_level_end_);
 		//Same Function for any comutation
 		void bucket_scan(
 			GPUArray<PeelT> nodeDegree, T node_num, int level,
@@ -337,11 +341,12 @@ namespace graph
 			{
 				// Clear the bucket_removed_indicator
 
-
+				//度数在区间[level, bucket_level_end_ + LEVEL_SKIP_SIZE]里面的点bucket.mark.gdata()设置为1
 				long grid_size = (node_num + BLOCK_SIZE - 1) / BLOCK_SIZE;
 				execKernel((filter_window<T, PeelT>), grid_size, BLOCK_SIZE, dev_, false,
 					nodeDegree.gdata(), node_num, bucket.mark.gdata(), level, bucket_level_end_ + LEVEL_SKIP_SIZE);
 
+				//
 				T val = CUBSelect(asc.gdata(), bucket.queue.gdata(), bucket.mark.gdata(), node_num, dev_);
 				bucket.count.setSingle(0, val, true);
 				bucket_level_end_ += LEVEL_SKIP_SIZE;
@@ -351,6 +356,7 @@ namespace graph
 			{
 				current.count.setSingle(0,0,true);
 				long grid_size = (bucket.count.getSingle(0) + BLOCK_SIZE - 1) / BLOCK_SIZE;
+				//nodeDegree在1和level+1之间的放入current
 				execKernel((filter_with_random_append<T, PeelT>), grid_size, BLOCK_SIZE, dev_, false,
 					bucket.queue.gdata(), bucket.count.getSingle(0), nodeDegree.gdata(), current.mark.gdata(), current.queue.gdata(), &(current.count.gdata()[0]), level, 1);
 			}
@@ -487,6 +493,7 @@ namespace graph
 				cudaDeviceSynchronize();
 
 				//1 bucket fill
+				//度数在[1,1+level)之间
 				bucket_scan(nodeDegree, todo_original, level, current_q, identity_arr_asc, bucket_q, bucket_level_end_);
 
 				int iterations = 0;
@@ -502,7 +509,9 @@ namespace graph
 					{
 						auto block_size = 256;
 						auto grid_size = (current_q.count.getSingle(0) + block_size - 1) / block_size;
-						execKernel((update_priority<T, PeelT>), grid_size, block_size, dev_, false, current_q.device_queue->gdata()[0], priority, nodePriority.gdata());
+						//current_q里面的点nodePriority[]更新为priority
+						execKernel((update_priority<T, PeelT>), grid_size, block_size, dev_, false, 
+							current_q.device_queue->gdata()[0], priority, nodePriority.gdata());
 					}
 					else
 					{
@@ -535,6 +544,7 @@ namespace graph
 						// }
 						// else if (level <= 32)
 						{
+							
 							execKernel((kernel_partition_level_next<T, PeelT, 128, 32>), grid_warp_size, block_size, dev_, false,
 								g,
 								level, processed.gdata(), nodeDegree.gdata(),

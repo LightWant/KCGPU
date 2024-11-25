@@ -1,0 +1,23 @@
+[0mWelcome ---------------------
+    Graph: data/my/72.txt
+    DST Graph: D:\graphs\as-Skitter2.bel
+    Pattern Graph: D:\graphs\as-Skitter2.bel
+    Device Id = 0
+    Allocation = gpu
+    Small Graph = Large Graph Allocation
+    Main Task = kc -> kclique
+    Graph Orientation = degen
+    Process By = node
+    Process Element = bw
+    k: 4
+    KC Config = PIV-8-BE
+Sorting Edges ... 
+Done Sorting Edges ... 
+[1;32m[16:42:21] Read graph time: 0.713692 s
+[0m[1;32m[16:42:21] Transfer Time: 0.000120 s
+[0mMax Core = 37
+[1;32m[16:42:21] Preprocess time: 0.011666 s
+[0m------------- Level = 3 Nodes = 96 Counter = 154,783
+[1;32m[16:42:21] count time 0.146966 s
+[0m[1;32m[16:42:21] MOHA 2050 k-clique (16643.314540 teps)
+[0mDone ....

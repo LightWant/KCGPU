@@ -248,6 +248,8 @@ static KcliqueConfig parseKcConfig(const char* s)
     {
         if(s[0] == 'p')
              kc.Algo = KCAlgoEnum::Pivoting;
+        if(s[0] == 'l')
+             kc.Algo = KCAlgoEnum::LargeClique;
         
 
         string sp(1, s[1]);
@@ -275,8 +277,10 @@ static const char* asString(KcliqueConfig kc)
 
     if( kc.Algo == KCAlgoEnum::GraphOrient)
         s+= "GO-"; 
-    else
-        s+= "PIV-";   
+    else if( kc.Algo == KCAlgoEnum::Pivoting)
+        s+= "PIV-";
+    else if( kc.Algo == KCAlgoEnum::LargeClique)
+        s+= "LargeClique-";     
     s += std::to_string(kc.PartSize);
     s+= "-";
     if(kc.BinaryEncode)

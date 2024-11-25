@@ -132,6 +132,9 @@ uint32_t CUBSelect(
     float elaspedTime = 0, singleKernelTime = 0;
 
     uint32_t* countOutput = nullptr;
+    //Automatic Data Movement
+    // must call cudaDeviceSynchronize() after kernel execution to ensure that all device operations are completed before accessing the data on the host.
+    //introduce latency
     CUDA_RUNTIME(cudaMallocManaged(&countOutput, sizeof(uint32_t)));
 
   /*  CUDA_RUNTIME(cudaEventCreate(&start));
@@ -141,6 +144,7 @@ uint32_t CUBSelect(
     size_t temp_storage_bytes = 0;
 
     //CUDA_RUNTIME(cudaEventRecord(start));
+    // When d_temp_storage is NULL, the required allocation size is written to \p temp_storage_bytes and no work is done.
     cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, input, flags, output, countOutput, countInput);
     /*CUDA_RUNTIME(cudaEventRecord(end));
     CUDA_RUNTIME(cudaEventSynchronize(start));
@@ -155,6 +159,7 @@ uint32_t CUBSelect(
     CUDA_RUNTIME(cudaMallocManaged(&d_temp_storage, temp_storage_bytes));
 
     //CUDA_RUNTIME(cudaEventRecord(start));
+    // When d_temp_storage is not NULL, select
     cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, input, flags, output, countOutput, countInput);
    /* CUDA_RUNTIME(cudaEventRecord(end));
     CUDA_RUNTIME(cudaEventSynchronize(start));

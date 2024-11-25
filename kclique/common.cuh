@@ -12,7 +12,7 @@ __constant__ uint NUMPART;
 __constant__ uint MAXLEVEL;
 __constant__ uint NUMDIVS;
 __constant__ uint CBPSM;
-
+//cudaMemcpyToSymbol(CBPSM, &h_CBPSM, sizeof(uint)) to initialize
 
 ///////////////////////////// Global ////////////////////////////////////////////
 template <typename T, int BLOCK_DIM_X>
@@ -77,7 +77,7 @@ __device__ __inline__ void reserve_space(uint32_t& sm_id, uint32_t& levelPtr, T*
     {
         sm_id = __mysmid();
         T temp = 0;
-        while (atomicCAS(&(levelStats[(sm_id * CBPSM) + temp]), 0, 1) != 0)
+        while (atomicCAS(&(levelStats[(sm_id * CBPSM) + temp%CBPSM]), 0, 1) != 0)
         {
             temp++;
         }
@@ -100,9 +100,23 @@ __device__ T get_next_sibling_index(T* from, T maskIndex, T& maskBlock)
     T newIndex = __ffs(from[maskBlock] & maskIndex);
     while(newIndex == 0)
     {
-        maskIndex = 0xFFFFFFFF;
+        //maskIndex = 0xFFFFFFFF;
         maskBlock++;
-        newIndex = __ffs(from[maskBlock] & maskIndex);
+        newIndex = __ffs(from[maskBlock] /*& maskIndex*/);
+    }
+    newIndex =  32*maskBlock + newIndex - 1;
+    return newIndex;
+}
+
+template<typename T>
+__device__ T get_next_sibling_index_maxked(T* from, T* maskedNodes, T maskIndex, T& maskBlock)
+{
+    T newIndex = __ffs((from[maskBlock]&(~maskedNodes[maskBlock])) & maskIndex);
+    while(newIndex == 0)
+    {
+       // maskIndex = 0xFFFFFFFF;
+        maskBlock++;
+        newIndex = __ffs((from[maskBlock]&(~maskedNodes[maskBlock])) /*& maskIndex*/);
     }
     newIndex =  32*maskBlock + newIndex - 1;
     return newIndex;

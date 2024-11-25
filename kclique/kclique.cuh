@@ -24,10 +24,14 @@
 
 
 #include "common.cuh"
+
 #include "kckernels_orientation.cuh"
 #include "kckernels_pivoting.cuh"
+#include "kckernels_largeClique.cuh"
+#include "kckernels_largeClique_v5.cuh"
 #include "kckernels.cuh"
 
+char nCrFile[] =  "./kclique/nCr.txt";
 
 template <typename T, uint BLOCK_DIM_X, uint CPARTSIZE>
 __launch_bounds__(BLOCK_DIM_X, 16)
@@ -1298,7 +1302,7 @@ kckernel_edge_block_warp_pivot_count(
 }
 
 namespace graph
-{
+{//T = uint
 	template<typename T>
 	class SingleGPU_Kclique
 	{
@@ -1335,7 +1339,7 @@ namespace graph
 			{
 				// Clear the bucket_removed_indicator
 
-
+				//计算bucket.mark
 				long grid_size = (node_num + BLOCK_SIZE - 1) / BLOCK_SIZE;
 				execKernel((filter_window<T, T>), grid_size, BLOCK_SIZE, dev_, false,
 					nodeDegree.gdata(), node_num, bucket.mark.gdata(), level, bucket_level_end_ + KCL_NODE_LEVEL_SKIP_SIZE);
@@ -1440,7 +1444,8 @@ namespace graph
 			const int dimBlock = 128;
 			nodeDegree.initialize("Edge Support", unified, g.numNodes, dev_);
 			uint dimGridNodes = (g.numNodes + dimBlock - 1) / dimBlock;
-			execKernel((getNodeDegree_kernel<T, dimBlock>), dimGridNodes, dimBlock, dev_, false, nodeDegree.gdata(), g, maxDegree);
+			execKernel((getNodeDegree_kernel<T, dimBlock>), dimGridNodes, dimBlock, dev_, false,
+				 nodeDegree.gdata(), g, maxDegree);
 		}
 
 
@@ -1668,6 +1673,7 @@ namespace graph
 						current_level2.gdata(), cpn.gdata(),
 						d_bitmap_states.gdata(), node_be.gdata(), globalCounter.gdata());
 
+					//std::locale(""): When the argument is an empty string "", it tells C++ to use the user's default locale as set in their environment or operating system.
 					std::cout.imbue(std::locale(""));
 					std::cout << "------------- Level = " << level << " Nodes = " << current_q.count.gdata()[0] << " Counter = " << counter.gdata()[0] << "\n";
 				}
@@ -1693,7 +1699,7 @@ namespace graph
 
 			FILE *infile;
 			GPUArray<unsigned long long> nCr("bmp bitmap stats", AllocationTypeEnum::gpu, 1001*401, dev_);
-			infile = fopen("/home/almasri3/mewcp-gpu/kclique/nCr.txt","r"); //change it
+			infile = fopen(nCrFile,"r"); //change it
 			double d=0;
 			if(infile==NULL)
 			{
@@ -1741,6 +1747,7 @@ namespace graph
 			maxDegree.setSingle(0, 0, true);
 			d_bitmap_states.setAll(0, true);
 			getNodeDegree(g, maxDegree.gdata());
+			//度数小于k的点删掉
 			bucket_scan(nodeDegree, g.numNodes, 0, kcount - 1, current_q, identity_arr_asc, bucket_q, bucket_level_end_);
 			todo -= current_q.count.gdata()[0];
 			current_q.count.gdata()[0] = 0;
@@ -1787,12 +1794,14 @@ namespace graph
 			cudaMemcpyToSymbol(MAXDEG, &(maxDegree.gdata()[0]), sizeof(MAXDEG));
 			cudaMemcpyToSymbol(CBPSM, &(conc_blocks_per_SM), sizeof(CBPSM));
 
+
 			//while (todo > 0)
 			{
 				CUDA_RUNTIME(cudaGetLastError());
 				cudaDeviceSynchronize();
 
 				//1 bucket fill
+				//
 				bucket_scan(nodeDegree, g.numNodes, level, span, current_q, identity_arr_asc, bucket_q, bucket_level_end_);
 				CUDA_RUNTIME(cudaGetLastError());
 				cudaDeviceSynchronize();
@@ -1800,6 +1809,7 @@ namespace graph
 				todo -= current_q.count.gdata()[0];
 				if (current_q.count.gdata()[0] > 0)
 				{
+					//每个点一个grid，每个grid 128个block
 					auto grid_block_size =  current_q.count.gdata()[0];
 					execKernel((kckernel_node_block_warp_binary_pivot_count<T, block_size, partitionSize>), grid_block_size, block_size, dev_, false,
 						counter.gdata(),
@@ -1817,12 +1827,11 @@ namespace graph
 						level_temp.gdata(),
 						nCr.gdata()
 					);
-
-					
 			
 					std::cout.imbue(std::locale(""));
 					std::cout << "------------- Level = " << level << " Nodes = " << current_q.count.gdata()[0] << " Counter = " << counter.gdata()[0] << "\n";
 				}
+
 				level += span;
 			}
 
@@ -1855,7 +1864,7 @@ namespace graph
 
 			FILE *infile;
 			GPUArray<unsigned long long> nCr("bmp bitmap stats", AllocationTypeEnum::gpu, 1001*401, dev_);
-			infile = fopen("/home/almasri3/mewcp-gpu/kclique/nCr.txt","r"); //change it
+			infile = fopen(nCrFile,"r"); //change it
 			double d=0;
 			if(infile==NULL)
 			{
@@ -2004,6 +2013,166 @@ namespace graph
 			//printf("Max Degree (+span) = %d\n", k - 1);
 		}
 
+		template<const int PSIZE>
+		void findKclqueLC_node_binary_async(int kcount, COOCSRGraph_d<T>& g,
+			ProcessingElementEnum pe, const size_t nodeOffset = 0, const size_t edgeOffset = 0)
+		{
+
+			printf("Test Test ?\n");
+
+			FILE *infile;
+			GPUArray<unsigned long long> nCr("bmp bitmap stats", AllocationTypeEnum::gpu, 1001*401, dev_);
+			infile = fopen(nCrFile,"r"); //change it
+			double d=0;
+			if(infile==NULL)
+			{
+				printf("file could not be opened\n");
+				exit(1);
+			}
+			
+			for(int row = 0; row < 1001; ++row)
+			{
+				for (int col = 0; col < 401; ++col)
+				{
+					if (!fscanf(infile,"%lf,",&d)) 
+						fprintf(stderr, "Error\n");
+					// fprintf(stderr, "%lf\n", d);
+					nCr.cdata()[row*401 + col] = (unsigned long long)d;
+				}
+			}
+			fclose(infile);
+			//printf("Test, 5c4 = %llu\n", nCr.cdata()[7*401 + 4]);
+
+			nCr.switch_to_gpu();
+
+			CUDA_RUNTIME(cudaSetDevice(dev_));
+			const auto block_size = 128;
+			CUDAContext context;
+			printf("num_SMs:%u\n", context.num_SMs);
+			
+			T num_SMs = context.num_SMs;
+			T level = 0;
+			T span = 1024;
+			T bucket_level_end_ = level;
+			T todo = g.numNodes;
+			GPUArray <uint64> counter("Temp level Counter", unified, 1, dev_);
+			
+			GPUArray <T> maxDegree("Temp Degree", unified, 1, dev_);
+
+			T conc_blocks_per_SM = context.GetConCBlocks(block_size);
+			printf("conc_blocks_per_SM:%u\n", conc_blocks_per_SM);
+
+			GPUArray<T> d_bitmap_states("bmp bitmap stats", AllocationTypeEnum::gpu, num_SMs * conc_blocks_per_SM, dev_);
+			T factor = (pe == Block) ? 1 : (block_size / 32);
+
+			GPUArray <uint64> cpn("Temp level Counter", unified, g.numNodes, dev_);
+			cpn.setAll(0, true);
+			// GPUArray<T>
+			// 	filter_level("Temp filter Counter", unified, g.numEdges, dev_),
+			// 	filter_scan("Temp scan Counter", unified, g.numEdges, dev_);
+			counter.setSingle(0, 0, true);
+			maxDegree.setSingle(0, 0, true);
+			d_bitmap_states.setAll(0, true);
+			getNodeDegree(g, maxDegree.gdata());
+			bucket_scan(nodeDegree, g.numNodes, 0, kcount - 1, current_q, identity_arr_asc, bucket_q, bucket_level_end_);
+			todo -= current_q.count.gdata()[0];
+			current_q.count.gdata()[0] = 0;
+			level = kcount - 1;
+			bucket_level_end_ = level;
+
+
+			const T partitionSize = PSIZE; //PART_SIZE;
+			factor = (block_size / partitionSize);
+
+			const uint dv = 32;
+			const uint max_level = 10;
+			uint num_divs = (maxDegree.gdata()[0] + dv - 1) / dv;
+			const uint64 level_size = num_SMs * conc_blocks_per_SM * factor * max_level * num_divs;
+			const uint64 encode_size = num_SMs * conc_blocks_per_SM * maxDegree.gdata()[0] * num_divs;
+			//printf("Level Size = %llu, Encode Size = %llu\n", level_size, encode_size);
+			GPUArray<T> current_level2("Temp level Counter", gpu, level_size, dev_);
+			GPUArray<T> node_be("Temp level Counter", gpu, encode_size, dev_);
+			current_level2.setAll(0, true);
+			node_be.setAll(0, true);
+
+			GPUArray<T> current_level_largeC("level large Clique", gpu, level_size, dev_);
+			current_level_largeC.setAll(0, true);
+
+			GPUArray<T> largeCs("Memory for large clique", gpu, num_SMs * conc_blocks_per_SM * num_divs, dev_);
+			largeCs.setAll(0, true);
+			GPUArray<T> toDoLargeCs("Memory for large clique", gpu, num_SMs * conc_blocks_per_SM * num_divs, dev_);
+			toDoLargeCs.setAll(1, true);
+
+			// GPUArray<uint64> globalCounter("Temp level Counter", gpu, 1, dev_);
+			// globalCounter.setSingle(0, 0, true);
+
+			const T numPartitions = block_size/partitionSize;
+			cudaMemcpyToSymbol(KCCOUNT, &kcount, sizeof(KCCOUNT));
+			cudaMemcpyToSymbol(PARTSIZE, &partitionSize, sizeof(PARTSIZE));
+			cudaMemcpyToSymbol(NUMPART, &numPartitions, sizeof(NUMPART));
+			cudaMemcpyToSymbol(MAXLEVEL, &max_level, sizeof(MAXLEVEL));
+			cudaMemcpyToSymbol(NUMDIVS, &num_divs, sizeof(NUMDIVS));
+			cudaMemcpyToSymbol(MAXDEG, &(maxDegree.gdata()[0]), sizeof(MAXDEG));
+			cudaMemcpyToSymbol(CBPSM, &(conc_blocks_per_SM), sizeof(CBPSM));
+
+			/*level = 32;
+			bucket_level_end_ = level;*/
+			while (todo > 0)
+			{
+				CUDA_RUNTIME(cudaGetLastError());
+				cudaDeviceSynchronize();
+
+				//1 bucket fill
+				bucket_scan(nodeDegree, g.numNodes, level, span, current_q, identity_arr_asc, bucket_q, bucket_level_end_);
+				CUDA_RUNTIME(cudaGetLastError());
+				cudaDeviceSynchronize();
+
+				todo -= current_q.count.gdata()[0];
+
+				printf("current_q.count.gdata()[0]:%u\n", current_q.count.gdata()[0]);
+				printf("maxDegree.gdata()[0]:%u\n", maxDegree.gdata()[0]);
+				
+				if (current_q.count.gdata()[0] > 0)
+				{
+
+					// std::sort(current_q.queue.gdata(), current_q.queue.gdata() + current_q.count.gdata()[0]);
+					// current_q.count.gdata()[0] = current_q.count.gdata()[0]< 128? current_q.count.gdata()[0]: 128;
+					//current_q.count.gdata()[0] = 1; 
+				
+					auto grid_block_size = current_q.count.gdata()[0]; //num_SMs * conc_blocks_per_SM; //
+					
+					execKernel((kckernel_node_block_warp_binary_count_lc<T, block_size, partitionSize, 10, NodeStartLevelOr>), grid_block_size, block_size, dev_, false,
+						counter.gdata(),
+						g,
+						current_q.device_queue->gdata()[0],
+						current_level2.gdata(), current_level_largeC.gdata(),
+						cpn.gdata(),
+						d_bitmap_states.gdata(), node_be.gdata(), 
+						// globalCounter.gdata(),
+						largeCs.gdata(),
+						toDoLargeCs.gdata(),
+						nCr.gdata()
+					);
+
+					//std::locale(""): When the argument is an empty string "", it tells C++ to use the user's default locale as set in their environment or operating system.
+					std::cout.imbue(std::locale(""));
+					std::cout << "------------- Level = " << level << " Nodes = " << current_q.count.gdata()[0] << " Counter = " << counter.gdata()[0] << "\n";
+				}
+				level += span;
+			}
+
+			// for(int i = 0; i<80; i++)
+			// 	printf("%lu\n", cpn.gdata()[i]);
+
+			current_level2.freeGPU();
+			counter.freeGPU();
+			cpn.freeGPU();
+			node_be.freeGPU();
+			d_bitmap_states.freeGPU();
+			k = level;
+			//printf("Max Degree (+span) = %d\n", k - 1);
+		}
+
 
 
 		////Edge
@@ -2033,7 +2202,12 @@ namespace graph
 
 			counter.setSingle(0, 0, true);
 			maxDegree.setSingle(0, 0, true);
-			execKernel((getEdgeDegree_kernel<T, 128>), (g.numEdges + 128 - 1) / 128, 128, dev_, false, g, edgePtr.gdata(), maxDegree.gdata());
+			/**
+			 * edgePtr[i]是第i条边(u,v) max(d[u], d[v])
+			 * maxDegree是度数最大的边
+			 */
+			execKernel((getEdgeDegree_kernel<T, 128>), (g.numEdges + 128 - 1) / 128, 128, dev_, false, 
+				g, edgePtr.gdata(), maxDegree.gdata());
 			GPUArray<char> current_level("Temp level Counter", unified, num_SMs * conc_blocks_per_SM * factor * maxDegree.gdata()[0], dev_);
 
 
@@ -2166,15 +2340,17 @@ namespace graph
 			GPUArray<T> d_bitmap_states("bmp bitmap stats", AllocationTypeEnum::gpu, num_SMs * conc_blocks_per_SM, dev_);
 			T factor = (pe == Block) ? 1 : (block_size / 32);
 
-
-
 			counter.setSingle(0, 0, true);
 			maxDegree.setSingle(0, 0, true);
-			execKernel((getEdgeDegree_kernel<T, 128>), (g.numEdges + 128 - 1) / 128, 128, dev_, false, g, edgePtr.gdata(), maxDegree.gdata());
+			execKernel((getEdgeDegree_kernel<T, 128>), (g.numEdges + 128 - 1) / 128, 128, dev_, false, 
+				g, edgePtr.gdata(), maxDegree.gdata());
 			GPUArray<char> current_level("Temp level Counter", unified, num_SMs * conc_blocks_per_SM * factor * maxDegree.gdata()[0], dev_);
 
 
 			//("Max Dgree = %u vs %u\n", maxDegree.gdata()[0], g.numEdges);
+			/**
+			 * 删掉度数不够的边
+			 */
 			bucket_edge_scan(edgePtr, g.numEdges, 0, kcount - 2, current_q, identity_arr_asc, bucket_q, bucket_level_end_);
 			todo -= current_q.count.gdata()[0];
 			current_q.count.gdata()[0] = 0;
@@ -2300,7 +2476,7 @@ namespace graph
 
 			FILE *infile;
 			GPUArray<unsigned long long> nCr("bmp bitmap stats", AllocationTypeEnum::gpu, 1001*401, dev_);
-			infile = fopen("/home/almasri3/mewcp-gpu/kclique/nCr.txt","r"); //change it
+			infile = fopen(nCrFile,"r"); //change it
 			double d=0;
 			if(infile==NULL)
 			{
@@ -2457,6 +2633,7 @@ namespace graph
 			//printf("Max Edge Min Degree = %d\n", k - 1);
 
 		}
+		
 
 		template<const int PSIZE>
 		void findKclqueIncremental_edge_nobin_pivot_async(int kcount, COOCSRGraph_d<T>& g,
@@ -2469,7 +2646,7 @@ namespace graph
 
 			FILE *infile;
 			GPUArray<unsigned long long> nCr("bmp bitmap stats", AllocationTypeEnum::gpu, 1001*401, dev_);
-			infile = fopen("/home/almasri3/mewcp-gpu/kclique/nCr.txt","r"); //change it
+			infile = fopen(nCrFile,"r"); //change it
 			double d=0;
 			if(infile==NULL)
 			{
@@ -2622,6 +2799,107 @@ namespace graph
 
 		}
 
+
+		template<const int PSIZE>
+		void findKclqueLC_edge_binary_async(int kcount, COOCSRGraph_d<T>& g,
+			ProcessingElementEnum pe, const size_t nodeOffset = 0, const size_t edgeOffset = 0)
+		{
+			CUDA_RUNTIME(cudaSetDevice(dev_));
+
+			const auto block_size = 128;
+
+			CUDAContext context;
+			T num_SMs = context.num_SMs;
+
+			T level = 0;
+			T span = 1024;
+			T bucket_level_end_ = level;
+			T todo = g.numEdges;
+
+			GPUArray <uint64> counter("Temp level Counter", unified, 1, dev_);
+			GPUArray <T> maxDegree("Temp Degree", unified, 1, dev_);
+
+			T conc_blocks_per_SM = context.GetConCBlocks(block_size);
+			GPUArray<T> d_bitmap_states("bmp bitmap stats", AllocationTypeEnum::gpu, num_SMs * conc_blocks_per_SM, dev_);
+			T factor = (pe == Block) ? 1 : (block_size / 32);
+
+			counter.setSingle(0, 0, true);
+			maxDegree.setSingle(0, 0, true);
+			execKernel((getEdgeDegree_kernel<T, block_size>), (g.numEdges + block_size - 1) / block_size, block_size, dev_, false, 
+				g, edgePtr.gdata(), maxDegree.gdata());
+			GPUArray<char> current_level("Temp level Counter", unified, num_SMs * conc_blocks_per_SM * factor * maxDegree.gdata()[0], dev_);
+
+			bucket_edge_scan(edgePtr, g.numEdges, 0, kcount - 2, current_q, identity_arr_asc, bucket_q, bucket_level_end_);
+			todo -= current_q.count.gdata()[0];
+			current_q.count.gdata()[0] = 0;
+			level = kcount - 2;
+			bucket_level_end_ = level;
+
+			const T partitionSize = PSIZE;
+			factor = (block_size / partitionSize);
+
+			const uint dv = 32;
+			const uint max_level = 10;
+			uint num_divs = (maxDegree.gdata()[0] + dv - 1) / dv;
+			const uint64 level_size = num_SMs * conc_blocks_per_SM * factor * max_level * num_divs;
+			const uint64 encode_size = num_SMs * conc_blocks_per_SM * maxDegree.gdata()[0] * num_divs;
+			const uint64 tri_size = num_SMs * conc_blocks_per_SM *  maxDegree.gdata()[0];
+			const uint64 stack_size = num_SMs * conc_blocks_per_SM * max_level * factor;
+		
+			GPUArray<T> current_level2("Temp level Counter", gpu, level_size, dev_);
+			GPUArray<T> node_be("Temp level Counter", gpu, encode_size, dev_);
+			GPUArray<T> tri_list("Temp level Counter", gpu, tri_size, dev_);
+
+			current_level2.setAll(0, false);
+			node_be.setAll(0, false);
+			tri_list.setAll(0, false);
+
+			const T numPartitions = block_size/partitionSize;
+			cudaMemcpyToSymbol(KCCOUNT, &kcount, sizeof(KCCOUNT));
+			cudaMemcpyToSymbol(PARTSIZE, &partitionSize, sizeof(PARTSIZE));
+			cudaMemcpyToSymbol(NUMPART, &numPartitions, sizeof(NUMPART));
+			cudaMemcpyToSymbol(MAXLEVEL, &max_level, sizeof(MAXLEVEL));
+			cudaMemcpyToSymbol(NUMDIVS, &num_divs, sizeof(NUMDIVS));
+			cudaMemcpyToSymbol(MAXDEG, &(maxDegree.gdata()[0]), sizeof(MAXDEG));
+			cudaMemcpyToSymbol(CBPSM, &(conc_blocks_per_SM), sizeof(CBPSM));
+
+
+			while (todo > 0)
+			{
+				//1 bucket fill
+				bucket_edge_scan(edgePtr, g.numEdges, level, span, current_q, identity_arr_asc, bucket_q, bucket_level_end_);
+				todo -= current_q.count.gdata()[0];
+				if (current_q.count.gdata()[0] > 0)
+				{
+					auto grid_block_size = current_q.count.gdata()[0];
+
+					execKernel((kckernel_edge_block_warp_binary_count_lc<T, block_size, partitionSize, 10, EdgeStartLevelOr>), grid_block_size, block_size, dev_, false,
+						counter.gdata(),
+						g,
+						current_q.device_queue->gdata()[0],
+						current_level2.gdata(), NULL,
+						d_bitmap_states.gdata(), node_be.gdata(), tri_list.gdata()
+					
+					);
+
+				}
+				level += span;
+
+				std::cout.imbue(std::locale(""));
+				std::cout << "Level = " << level << " Nodes = " << current_q.count.gdata()[0] << " Counter = " << counter.gdata()[0] << "\n";
+			}
+
+			current_level2.freeGPU();
+			node_be.freeGPU();
+			tri_list.freeGPU();
+			counter.freeGPU();
+			//cpn.freeGPU();
+			current_level.freeGPU();
+
+			d_bitmap_states.freeGPU();
+			maxDegree.freeGPU();
+			k = level;
+		}	
 
 
 
